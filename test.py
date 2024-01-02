@@ -1,41 +1,63 @@
-import pygame
-import sys
-import math
+"cau 1"
 
-pygame.init()
-
-# Cấu hình cửa sổ
-width, height = 800, 600
-screen = pygame.display.set_mode((width, height))
-pygame.display.set_caption('Slash VFX')
-
-# Màu sắc
-white = (255, 255, 255)
-
-# Hàm vẽ hiệu ứng slash
-def draw_slash(x, y, length, angle):
-    # Chuyển đổi góc sang radian
-    angle_rad = math.radians(angle)
+d = (input("Nhap van ban can tim xac suat xuat hien: ")) + " "
+temp = ""
+count_d = []
+for i in d:
+    if i != " ":
+        temp += i.upper()
+    else:
+        count_d.append(temp)
+        temp = ""
+text = {}
+for i in count_d:
+    if i not in text:    
+        text[i] = 1
+    elif i in text:
+        text[i] += 1
+for i in text:
+    text[i] = (text[i]/len(count_d))*100
+for i in text:
+    print(f"p({i}): {text[i]}%")
     
-    # Tính toán các điểm cuối của đường slash
-    end_x = x + length * math.cos(angle_rad)
-    end_y = y - length * math.sin(angle_rad)
+        
+"Cau 3"
+
+class congnhan:
+    def _intf__(self, mcn, ht, b, snlv, nkhd):
+        self.mcn + mcn
+        self.ht + ht
+        self.b + b
+        self.snlv + snlv
+        self.nkhd + nkhd 
+        self.tl
+    def In(self):
+        self.nkhd = ("day" + "/" + "month" + "/" "year")
+        print("Nhap ma cong nhan: {self.mcn}")
+        print("Nhap ho ten cong nhan: {self.ht}")
+        print("Nhap bac cong nhan (1 den 3): {self.b}")
+        print("Nhap so ngay cua cong nhan: {self.snlv}")
+        print("Nhap ngay ki cua cong nhan: {self.nkhd}")
+    def Out(self):
+        print("Ma cong nhan: ", self.mcn)
+        print("Ho ten cong nhan: ", self.ht)
+        print("Bac cong nhan: ", self.b)
+        print("So ngay cua cong nhan: ", self.snlv)
+        print("Ngay ki hop dong cua cong nhan: ", self.nkhd)
+        tl = 0
+        if self.b == 1:
+            tl = self.snlv * 300000
+            print("Tien luong tong: {tl}")
+        if self.b == 2:
+            tl = self.snlv * 350000
+            print("Tien luong tong: {tl}")
+        if self.b == 3:
+            tl = self.snlv * 400000
+            print("Tien luong tong: {tl}")
+congnhan = "22t102", "Ho Trong Giap", "1", "50", "20/5/2020"
+print(congnhan)
+
+
     
-    # Vẽ đường slash
-    pygame.draw.line(screen, white, (x, y), (end_x, end_y), 5)
+        
 
-# Vòng lặp chính
-while True:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-
-    # Hiển thị frame của hiệu ứng slash
-    screen.fill((0, 0, 0))  # Màu nền đen
-
-    # Vẽ hiệu ứng slash
-    draw_slash(width // 2, height // 2, 100, pygame.time.get_ticks() % 360)
-
-    pygame.display.flip()
-    pygame.time.Clock().tick(60)  # Giới hạn frames per second

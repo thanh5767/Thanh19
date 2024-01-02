@@ -51,8 +51,8 @@ class Slash():
 		self.vel_y = math.sin(self.angle)
 		self.image = pygame.Surface((self.size,self.size))
 		self.img_size = self.image.get_size()
-		pygame.draw.circle(self.image,self.color,(self.img_size[0]//2,self.img_size[1]//2 + 5),self.img_size[0]//2)
-		pygame.draw.circle(self.image,'black',(self.img_size[0]//2,self.img_size[1]//2 + self.img_size[1]//4 + 5),self.img_size[0]//2)
+		pygame.draw.circle(self.image,self.color,(self.img_size[0]//2,self.img_size[1]//2),self.img_size[0]//2)
+		pygame.draw.circle(self.image,'black',(self.img_size[0]//2,self.img_size[1]//2 + self.img_size[1]//4),self.img_size[0]//2)
 		self.image.set_colorkey((0,0,0))
 		rel_center = (self.target_pos[0] - self.pos[0], self.target_pos[1] - self.pos[1])
 		angle = (1 if self.game.player.flip else -1)*math.degrees(math.atan2(rel_center[1], rel_center[0]))
@@ -114,7 +114,7 @@ class Wood_sword(Weapon):
 		if event.button == 1 and self.time_slash == 0:
 			test_slash = Slash(self.game,50,'white',2,self.entity.rect().center,self.game.mouse_pos)
 			self.time_slash = test_slash.alive_time
-			test_slash.speed = 4
+			test_slash.speed = 3
 			self.game.slashs.append(test_slash)
 	def render(self,surf,offset,object_to_draw):
 		self.time_slash = max(0,self.time_slash - 0.25)
@@ -137,7 +137,8 @@ class Wood_axe(Weapon):
 		self.time_slash = max(0,self.time_slash - 0.25)
 		if self.time_slash > 0:
 			self.stop = True
-			self.angle += (-20 if self.entity.flip else -20)
+			self.angle += (-30 if self.entity.flip else -30)
+
 		else:
 			self.stop = False
 		super().render(surf,offset,object_to_draw)
@@ -154,10 +155,7 @@ class Wood_pickaxe(Weapon):
 		self.time_slash = max(0,self.time_slash - 0.25)
 		if self.time_slash > 0:
 			self.stop = True
-			if not self.entity.flip:
-				self.angle = self.angle - 20
-			else:
-				self.angle = self.angle - 20
+			self.angle += (-30 if self.entity.flip else -30)
 		else:
 			self.stop = False
 		super().render(surf,offset,object_to_draw)
@@ -192,28 +190,54 @@ class Spear(Weapon):
 		self.charge = 0
 		self.ratio = 0
 		self.time_slash = 0
-
+		self.test_slash = None
 	def charge_shoot(self):
 		if pygame.mouse.get_pressed()[0]:
-			self.charge = min(20,self.charge + 0.25)
+			self.charge = min(100,self.charge + 0.25)
 			# pygame.draw.line(self.game.display,'green',(self.rect()[1].centerx - self.game.true_scroll[0],self.rect()[1].centery - self.game.true_scroll[1]),(self.game.mouse_pos[0] - self.game.true_scroll[0],self.game.mouse_pos[1] - self.game.true_scroll[1]),1)
-
 		else: self.charge = 0
 		self.ratio = self.charge/20
 	def shoot_arrow(self,event):
 		if self.charge >= 5:
 			if event.button == 1:
-				test_slash = Slash(self.game,(self.charge * 4),'red',self.charge//3,self.entity.rect().center,self.game.mouse_pos)
-				self.time_slash = test_slash.alive_time
+				self.test_slash = Slash(self.game,(self.charge * 4),'red',self.charge//3,self.entity.rect().center,self.game.mouse_pos)
+				self.time_slash = self.test_slash.alive_time
 				# test_slash.size = (self.charge * 4)
-				self.game.slashs.append(test_slash)
+				self.game.slashs.append(self.test_slash)
 				self.charge = 0
 
 	def render(self,surf,offset,object_to_draw):
+		self.time_slash = max(0,self.time_slash - 0.25)
+		if self.time_slash > 0:
+			self.entity.pos[0] += self.test_slash.vel_x * 10
+			self.entity.pos[1] += self.test_slash.vel_y * 10
+
 		super().render(surf,offset,object_to_draw)
 		pygame.draw.rect(surf,'#C7CBD1',(self.game.player.pos[0] - offset[0],self.game.player.pos[1] - offset[1] - 20,self.game.player.rect().width,2))
 		pygame.draw.rect(surf,'#303841',(self.game.player.pos[0] - offset[0],self.game.player.pos[1] - offset[1] - 20,self.game.player.rect().width*self.ratio,2))
 
+class Katana(Weapon):
+	def __init__(self,game,entity,size):
+		super().__init__(game,5,entity,size,True)
+		self.time_slash = 0
+		self.test_slash = None
+	def slash(self,event):
+		if event.button == 1 and self.time_slash == 0:
+			self.test_slash = Slash(self.game,50,random.choice(['#4384AD']),2,self.entity.rect().center,self.game.mouse_pos)
+			self.time_slash = self.test_slash.alive_time
+			self.test_slash.speed = 10
+			self.game.slashs.append(self.test_slash)
+
+	def render(self,surf,offset,object_to_draw):
+		self.time_slash = max(0,self.time_slash - 0.25)
+		if self.time_slash > 0:
+			# self.entity.pos[0] -= self.test_slash.vel_x * 10
+			# self.entity.pos[1] -= self.test_slash.vel_y * 10
+			self.stop = True
+			self.angle += (-30 if self.entity.flip else -30)
+		else:
+			self.stop = False
+		super().render(surf,offset,object_to_draw)
 
 class E_weapon():
 	def __init__(self,game,number,entity,target_pos,size):

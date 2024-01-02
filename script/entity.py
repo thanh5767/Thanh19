@@ -28,7 +28,7 @@ class Inventory():
 				type_item = random.choice(test_storage)
 				variant = 0
 				if type_item in tool_item:
-					variant = random.randint(0,4)
+					variant = random.randint(0,5)
 				self.storage[(self.x_move + i,self.y_move + j)] = {'type':type_item,'pos':(self.x_move + i,self.y_move + j),'quantity':1,'variant':variant}
 	def sorted_storage(self):
 		type_item = set()

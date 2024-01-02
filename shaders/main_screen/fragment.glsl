@@ -56,10 +56,11 @@ void main() {
     //originalColor = Grey_color(originalColor);
     originalColor = Warm_color(originalColor);
     originalColor = Cold_color(originalColor);
-
     originalColor = Green_color(originalColor);
+
 
 
     // Assign the modified color to the output
     color = originalColor;
+
 }

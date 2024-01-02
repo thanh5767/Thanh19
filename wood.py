@@ -4,7 +4,7 @@ import sys,random,time
 from datetime import datetime
 from script.utils import load_image,load_images,Animation,DayNight,Button,Hot_bar,Inventory_icon,Setting_icon
 from script.entity import Physical_Entity,Player,Dafluffy,Inventory,Chest_inventory
-from script.weapon import Weapon,Wood_sword,Wood_axe,Wood_pickaxe,Bow,Spear,E_weapon
+from script.weapon import Weapon,Wood_sword,Wood_axe,Wood_pickaxe,Bow,Spear,E_weapon,Katana
 from script.tile_map import Tile_map
 
 
@@ -55,8 +55,8 @@ class Game():
 		Wood_pickaxe(self,self.player,[24,24]),
 		Bow(self,self.player,[24,24]),
 		Spear(self,self.player,[24,24]),
+		Katana(self,self.player,[24,24]),
 		]
-
 
 		self.elite_group = []
 
@@ -66,6 +66,7 @@ class Game():
 			self.elite_group.append(daff)
 		self.tile_map.seed = random.randint(-1000,1000)
 		# self.tile_map.seed = 10000
+
 		self.player_speed = 2
 		self.daynight = DayNight(self)
 		self.font = pygame.font.SysFont('minecraft',8)
@@ -121,15 +122,6 @@ class Game():
 			image = obj[0]
 			rect = obj[1]
 			display.blit(image,(rect.x- scroll[0],rect.y -scroll[1]))
-	def generate_glow(self,glow,radius):
-		surf = pygame.Surface((radius * 2,radius * 2),pygame.SRCALPHA)
-		layers = 50
-		glow = clamp(glow,0,255)
-		for i in range(layers):
-			k = i * glow
-			k = clamp(k,0,255)
-			pygame.draw.circle(surf,(k,k,k),surf.get_rect().center,radius - i*3)
-		return surf
 	def draw_text(self,text,font,color,surface,loc):
 		surface.blit(font.render(text,1,color),(loc[0],loc[1]))
 	def run(self):
@@ -159,7 +151,7 @@ class Game():
 						for i,button in enumerate(self.main_buttons):
 							button.pos[0] = button.start_pos - i*80
 			else:
-				self.display.fill('#83a167')
+				self.display.fill('#8A6556')
 				self.scroll[0] += (self.player.pos[0] - self.scroll[0] - self.display.get_size()[0]/2)/20
 				self.scroll[1] += (self.player.pos[1] - self.scroll[1] - self.display.get_size()[1]/2)/20
 				self.true_scroll =[int(self.scroll[0]),int(self.scroll[1])]
@@ -211,7 +203,7 @@ class Game():
 				if self.player.inventory.update == True or self.check_chest!=None:
 					self.player.inventory.render(self.display)
 				else:
-					loc = (self.mouse_pos[0]//self.tile_map.tile_size,self.mouse_pos[1]//self.tile_map.tile_size)
+					loc = (self.mouse_pos[0]//self.tile_map.tile_size,self.mouse_pos[1]//self.tile_map.tile_size,3)
 					test_distance = abs(int(self.player.pos[0]) - int(self.mouse_pos[0])) <= 300 and abs(int(self.player.pos[1]) - int(self.mouse_pos[1])) <=150
 					if self.use != None and self.use['quantity'] > 0 and self.use['type'] not in [0,'weapon'] and test_distance:
 						if self.use['type'] != 0:
@@ -281,7 +273,7 @@ class Game():
 							self.game_pause = True
 							for i,button in enumerate(self.main_buttons):
 								button.pos[0] = button.start_pos - i*80
-						if self.use['type'] == 'weapon' and self.use['variant'] in [0,1,2]:
+						if self.use['type'] == 'weapon' and self.use['variant'] in [0,1,2,5]:
 							self.weapon_class[self.use['variant']].slash(event)
 					if event.type == pygame.MOUSEBUTTONUP:
 						if self.use['type'] == 'weapon' and self.use['variant'] in [3,4]:
@@ -296,8 +288,7 @@ class Game():
 			# self.daynight.render()
 			# self.daynight.lightning([self.player.pos[0] - self.assets['light'][0].get_size()[0]/2,self.player.pos[1]- self.assets['light'][0].get_size()[1]/2],self.true_scroll,self.dt)
 			# self.daynight.lightning([self.player.pos[0] - self.assets['light'].get_size()[0]/2,self.player.pos[1]- self.assets['light'].get_size()[1]/2],self.true_scroll,self.dt)
-
-			self.draw_text(f'FPS: {int(self.clock.get_fps())}\nSEED: {int(self.tile_map.seed)}\nPOS: {[self.player.pos[0]//self.tile_map.tile_size,self.player.pos[1]//self.tile_map.tile_size]}',self.font,'black',self.display,[0,10])
+			self.draw_text(f'FPS: {(self.clock.get_fps())}\nSEED: {int(self.tile_map.seed)}\nPOS: {[self.player.pos[0]//self.tile_map.tile_size,self.player.pos[1]//self.tile_map.tile_size]}',self.font,'black',self.display,[0,10])
 			pygame.display.flip()
 if __name__ == '__main__':
 	Game().run()
