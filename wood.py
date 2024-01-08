@@ -2,9 +2,9 @@ import pygame
 import pygame_shaders
 import sys,random,time
 from datetime import datetime
-from script.utils import load_image,load_images,Animation,DayNight,Button,Hot_bar,Inventory_icon,Setting_icon
-from script.entity import Physical_Entity,Player,Dafluffy,Inventory,Chest_inventory
-from script.weapon import Weapon,Wood_sword,Wood_axe,Wood_pickaxe,Bow,Spear,E_weapon,Katana
+from script.utils import load_image,load_images,Animation,DayNight,Hot_bar,Inventory_icon,Setting_icon,Health_bar,Energy_bar
+from script.entity import Physical_Entity,Player,Dafluffy,Inventory,Chest_inventory,Item,Deer,Homeless
+from script.weapon import Weapon,Wood_sword,Wood_axe,Wood_pickaxe,Bow,Spear,Katana,Bare_hands,Pistol
 from script.tile_map import Tile_map
 
 
@@ -30,6 +30,10 @@ class Game():
 		'player2/run': Animation(load_images('entity/player2/run'),dur = 3,loop = True),
 		'dafluffy/idle': Animation(load_images('entity/dafluffy/idle'),dur = 5,loop = True),
 		'dafluffy/run': Animation(load_images('entity/dafluffy/run'),dur = 3,loop = True),
+		'deer/idle': Animation(load_images('entity/deer/idle'),dur = 5,loop = True),
+		'deer/run': Animation(load_images('entity/deer/run'),dur = 3,loop = True),
+		'homeless/idle': Animation(load_images('entity/homeless/idle'),dur = 5,loop = True),
+		'homeless/run': Animation(load_images('entity/homeless/run'),dur = 3,loop = True),
 		'stone': load_images('stone'),
 		'wood_block': load_images('wood_block'),
 		'water': load_images('water'),
@@ -47,8 +51,13 @@ class Game():
 		'menu':load_images('menu'),
 		'weapon':load_images('weapon'),
 		'bullet':load_images('bullet'),
+		'item':load_images('item'),
 		}
-		self.player = Player(self,[0,0],[12,4])
+		self.font = pygame.font.SysFont('minecraft',8)
+
+		self.player = Player(self,[0,0],[16,6])
+		self.player.health_bar = Health_bar((self.player.tool_bar.x_move*30,self.player.tool_bar.y_move*30 - 20),[75,10],self.player.hp,self.player.max_hp)
+		self.player.energy_bar = Energy_bar((self.player.tool_bar.x_move*30 + 90,self.player.tool_bar.y_move*30 - 20),[75,10],self.player.energy,self.player.max_energy)
 		self.weapon_class = [
 		Wood_sword(self,self.player,[24,24]),
 		Wood_axe(self,self.player,[24,24]),
@@ -56,41 +65,35 @@ class Game():
 		Bow(self,self.player,[24,24]),
 		Spear(self,self.player,[24,24]),
 		Katana(self,self.player,[24,24]),
+		Bare_hands(self,self.player,[24,24]),
+		Pistol(self,self.player,[24,24]),
 		]
-
+		self.player.weapon = self.weapon_class[6]
 		self.elite_group = []
-
+		self.animals = []
+		self.enemies = []
+		self.item_group = []
 		for i in range(6):
-			daff = Dafluffy(self,[0,0],[12,4])
-			daff.weapon = E_weapon(self,random.randint(0,4),daff,self.player.rect().center,[24,24])
-			self.elite_group.append(daff)
+			# daff = Dafluffy(self,[0,0],[12,4])
+			# daff.weapon = Katana(self,daff,[24,24])
+			# self.elite_group.append(daff)
+			# self.animals.append(Deer(self,[0,0],[24,24]))
+			homeless = Homeless(self,[0,0],[16,6])
+			homeless.target = self.player
+			homeless.weapon = Katana(self,homeless,[24,24])
+			self.enemies.append(homeless)
 		self.tile_map.seed = random.randint(-1000,1000)
 		# self.tile_map.seed = 10000
-
 		self.player_speed = 2
 		self.daynight = DayNight(self)
-		self.font = pygame.font.SysFont('minecraft',8)
 		self.hold = None
-		self.play_button = Button(self.assets['menu'][0],[0,self.monitorsize[1]//3.75],[192,48])
-		self.option_button = Button(self.assets['menu'][1],[0,self.monitorsize[1]//3],[192,48])
-		self.quit_button = Button(self.assets['menu'][2],[0,self.monitorsize[1]//2.5],[192,48])
-
-		self.maker_button = Button(self.assets['menu'][3],[0,self.monitorsize[1]//3.75],[192,48])
-		self.back_button = Button(self.assets['menu'][4],[0,self.monitorsize[1]//3],[192,48])
-		self.main_buttons = [self.play_button,self.option_button,self.quit_button]
-		self.option_buttons = [self.maker_button,self.back_button]
-		self.game_pause = True
-		self.game_statut = 'main'
-		for i,button in enumerate(self.main_buttons):
-			button.pos[0] = button.start_pos - i*80
-		for i,button in enumerate(self.option_buttons):
-			button.pos[0] = button.start_pos - i*80
 		self.invent_icon = Inventory_icon(self,[0,1],[48,48],48)
 		self.setting_icon = Setting_icon(self,[0,2],[48,48],48)
 		self.use = {'type':0,'quantity':0}
 		self.time = -10
 		self.bullets = []
 		self.slashs = []
+		self.screen_shake = 0
 
 	def shadow_def(self,display, image, rect, scroll,dt):
 		# shadow_surf = pygame.Surface((self.monitorsize))
@@ -112,7 +115,7 @@ class Game():
 		shadow_surf = pygame.Surface(display.get_size(), pygame.SRCALPHA)
 		for obj in objects_to_draw:
 			image, rect = obj[0], obj[1]
-			if image in self.assets['tree'] or image in self.assets['rock'] or image in self.assets['bullet']:
+			if image in self.assets['tree'] or image in self.assets['rock'] or image in self.assets['item']:
 				pygame.draw.ellipse(shadow_surf, (0, 0, 0, 50), (rect.x - scroll[0], rect.y - scroll[1] + rect.height // 1.25, rect.width, rect.height // 3))
 			elif image in self.assets['stone'] or image in self.assets['wood_wall'] or image in self.assets['sand_stone'] or image in self.assets['chest'] or image in self.assets['wood_block']:
 				pygame.draw.rect(shadow_surf, (0, 0, 0, 50), (rect.x - scroll[0], rect.y - scroll[1] + rect.height, rect.width, rect.height // 3))
@@ -124,176 +127,272 @@ class Game():
 			display.blit(image,(rect.x- scroll[0],rect.y -scroll[1]))
 	def draw_text(self,text,font,color,surface,loc):
 		surface.blit(font.render(text,1,color),(loc[0],loc[1]))
-	def run(self):
+	def main_menu(self):
+		buttons = []
+		for i in range(3):
+			button = pygame.Rect(self.display.get_width()//2 - self.assets['menu'][0].get_width(),self.display.get_height()//2 + i*75,192,48)
+			buttons.append(button)
+		self.scroll = [0,0]
 		while True:
 			self.screen_shader.render(self.display)
-			self.dt = self.clock.tick(30)/1000
-			if self.game_pause:
-				if self.game_statut == 'main':
-					self.display.fill('cyan')
-					self.display.blit(pygame.transform.scale(self.assets['menu'][8],self.display.get_size()),(0,0))
-					if self.play_button.draw(self.display):
-						
-						self.game_pause = False
-					if self.option_button.draw(self.display):
-						self.game_statut = 'option'
-						for i,button in enumerate(self.option_buttons):
-							button.pos[0] = button.start_pos - i*80
-					if self.quit_button.draw(self.display):
-						pygame.quit()
-						sys.exit()
-				elif self.game_statut == 'option':
-					self.display.fill('#80ceae')
-					if self.maker_button.draw(self.display):
-						pass
-					if self.back_button.draw(self.display):
-						self.game_statut = 'main'
-						for i,button in enumerate(self.main_buttons):
-							button.pos[0] = button.start_pos - i*80
-			else:
-				self.display.fill('#8A6556')
-				self.scroll[0] += (self.player.pos[0] - self.scroll[0] - self.display.get_size()[0]/2)/20
-				self.scroll[1] += (self.player.pos[1] - self.scroll[1] - self.display.get_size()[1]/2)/20
-				self.true_scroll =[int(self.scroll[0]),int(self.scroll[1])]
-				self.scaling_factor_x = self.screen.get_width() / (self.display.get_width())
-				self.scaling_factor_y = self.screen.get_height() / (self.display.get_height())
-				self.key = pygame.key.get_pressed()
-				self.mouse_pos = pygame.mouse.get_pos()
-				self.mouse_pos = (self.mouse_pos[0]//self.scaling_factor_x + self.scroll[0], self.mouse_pos[1]//self.scaling_factor_y + self.scroll[1])
-				self.object_to_draw = []
-
-				self.tile_map.render(self.display,self.true_scroll,self.object_to_draw,Chest_inventory(self))
-				self.check_chest = self.tile_map.check_chest(self.player.pos,self.display)
-
-				self.player.update(self.tile_map,((self.movement[3] - self.movement[2])*self.player_speed,(self.movement[1] - self.movement[0])*self.player_speed))
-				self.player.render(self.display,self.true_scroll,self.object_to_draw)
-				if self.use['type'] == 'weapon':
-					self.player.weapon = self.weapon_class[self.use['variant']]
-				else: self.player.weapon = None
-				if self.player.weapon != None:
-					self.player.weapon.pos = (self.player.rect().centerx,self.player.rect().centery - 5)
-					self.player.weapon.render(self.display,self.true_scroll,self.object_to_draw)
-					# rect_weapon = self.player.weapon.rect()[1]
-					if self.use['type'] == 'weapon' and self.use['variant'] in [3,4]:
-						self.player.weapon.charge_shoot()
-
-				for elite in self.elite_group:
-					elite.update(self.tile_map)
-					elite.render(self.display,self.true_scroll,self.object_to_draw)
-					elite.weapon.target_pos = self.player.rect().center
-					elite.weapon.pos = (elite.rect().centerx,elite.rect().centery - 5)
-					elite.weapon.render(self.display,self.true_scroll,self.object_to_draw)
-				for bullet in self.bullets:
-					# bullet.update(self.tile_map)
-					bullet.render(self.display,self.true_scroll,self.object_to_draw,self.tile_map)
-				for slash in self.slashs:
-					if slash.alive:
-						slash.render(self.display,self.true_scroll,self.object_to_draw,self.tile_map)
-					else:
-						self.slashs.remove(slash)
-
-				self.create_shadow_optimize(self.display,self.object_to_draw,self.true_scroll)
-				# self.create_shadow(self.display,self.object_to_draw,self.true_scroll,self.time)
-				self.draw_object(self.display,self.object_to_draw,self.true_scroll,self.player)
-				
-				self.m_pos_screen = (pygame.mouse.get_pos()[0]//2,pygame.mouse.get_pos()[1]//2)
-
-				# PLAYER iNVENTORY
-				self.player.tool_bar.render(self.display)
-				if self.player.inventory.update == True or self.check_chest!=None:
-					self.player.inventory.render(self.display)
-				else:
-					loc = (self.mouse_pos[0]//self.tile_map.tile_size,self.mouse_pos[1]//self.tile_map.tile_size,3)
-					test_distance = abs(int(self.player.pos[0]) - int(self.mouse_pos[0])) <= 300 and abs(int(self.player.pos[1]) - int(self.mouse_pos[1])) <=150
-					if self.use != None and self.use['quantity'] > 0 and self.use['type'] not in [0,'weapon'] and test_distance:
-						if self.use['type'] != 0:
-							if self.tile_map.map_data[loc]['type'] == 0:
-								# item_image = self.assets[self.use['type']][0].copy()
-								# item_image.set_alpha(150)
-								# self.display.blit(item_image,(self.tile_map.map_data[loc]['pos'][0]*self.tile_map.tile_size - self.true_scroll[0],self.tile_map.map_data[loc]['pos'][1]*self.tile_map.tile_size - self.true_scroll[1]))
-								pygame.draw.rect(self.display,'white',(self.tile_map.map_data[loc]['pos'][0]*self.tile_map.tile_size - self.true_scroll[0],self.tile_map.map_data[loc]['pos'][1]*self.tile_map.tile_size - self.true_scroll[1],self.tile_map.tile_size,self.tile_map.tile_size),1)
-							else:
-								pygame.draw.rect(self.display,'red',(self.tile_map.map_data[loc]['pos'][0]*self.tile_map.tile_size - self.true_scroll[0],self.tile_map.map_data[loc]['pos'][1]*self.tile_map.tile_size - self.true_scroll[1],self.tile_map.tile_size,self.tile_map.tile_size),1)
-
-						if pygame.mouse.get_pressed()[0]:
-							if loc in self.tile_map.map_data:
-								if self.tile_map.map_data[loc]['type'] == 0:
-									self.tile_map.place_block(self.mouse_pos,self.use['type'],3)
-									self.use['quantity'] -= 1
-									if self.use['quantity'] == 0:
-										self.use['type'] = 0
-										self.use['quantity'] = 0
-				self.tile_map.chest_inventory[self.check_chest]['inventory'].render(self.display) if self.check_chest != None else True
-				#menu
-
-				self.invent_icon.render(self.display)
-				self.setting_icon.render(self.display)
-				if pygame.key.get_pressed()[pygame.K_r]:
-					self.tile_map.place_block(self.mouse_pos,0,3)
-
-				for event in pygame.event.get():
-					if event.type == pygame.QUIT:
-						pygame.quit()
-						sys.exit()
-					if event.type == pygame.KEYDOWN:
-						if event.key == pygame.K_UP:
-							self.movement[0] = True
-						if event.key == pygame.K_DOWN:
-							self.movement[1] = True
-						if event.key == pygame.K_LEFT:
-							self.movement[2] = True
-						if event.key == pygame.K_RIGHT:
-							self.movement[3] = True
-						if event.key == pygame.K_y:
-							self.tile_map.place_struct([self.mouse_pos[0]//self.tile_map.tile_size,self.mouse_pos[1]//self.tile_map.tile_size])
-						if event.key == pygame.K_s:
-							self.player.inventory.sorted_storage()
-							self.player.tool_bar.sorted_storage()
-							self.tile_map.chest_inventory[self.check_chest]['inventory'].sorted_storage() if self.check_chest != None else True
-
-					if event.type == pygame.KEYUP:
-						if event.key == pygame.K_UP:
-							self.movement[0] = False
-						if event.key == pygame.K_DOWN:
-							self.movement[1] = False
-						if event.key == pygame.K_LEFT:
-							self.movement[2] = False
-						if event.key == pygame.K_RIGHT:
-							self.movement[3] = False
-
-					if event.type == pygame.MOUSEBUTTONDOWN:
-						self.player.inventory.replace_item(self.m_pos_screen,event,self.display) if (self.player.inventory.update == True or self.check_chest!=None) else True
-						self.tile_map.chest_inventory[self.check_chest]['inventory'].replace_item(self.m_pos_screen,event,self.display) if self.check_chest != None else True
-						self.player.tool_bar.replace_item(self.m_pos_screen,event,self.display) if (self.player.inventory.update == True or self.check_chest!=None) else True
-						self.use = self.player.tool_bar.get_box(self.m_pos_screen,event)
-
-						if self.invent_icon.check_mouse(pygame.mouse.get_pos(),event):
-							self.player.inventory.check_on()
-						if self.setting_icon.check_mouse(pygame.mouse.get_pos(),event):
-							self.game_pause = True
-							for i,button in enumerate(self.main_buttons):
-								button.pos[0] = button.start_pos - i*80
-						if self.use['type'] == 'weapon' and self.use['variant'] in [0,1,2,5]:
-							self.weapon_class[self.use['variant']].slash(event)
-					if event.type == pygame.MOUSEBUTTONUP:
-						if self.use['type'] == 'weapon' and self.use['variant'] in [3,4]:
-							self.weapon_class[self.use['variant']].shoot_arrow(event)
-			self.draw_text(f'{self.weapon_class[3].charge}',self.font,'black',self.display,[0,40])
+			# self.display.blit(pygame.transform.scale(self.assets['menu'][8],self.display.get_size()),(0,0))
+			self.display.fill('salmon')
+			mx,my = pygame.mouse.get_pos()
+			click = False
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					pygame.quit()
 					sys.exit()
-				
+				if event.type == pygame.MOUSEBUTTONDOWN:
+					if event.button == 1:
+						click = True
+			img = pygame.mask.from_surface(pygame.transform.scale2x(self.assets['menu'][0]))
+			self.display.blit(pygame.transform.scale2x(self.assets['menu'][0]),buttons[0])
+			self.display.blit(pygame.transform.scale2x(self.assets['menu'][1]),buttons[1])
+			self.display.blit(pygame.transform.scale2x(self.assets['menu'][2]),buttons[2])
+			if buttons[0].collidepoint(mx//2,my//2):
+				outline = [(p[0] + buttons[0].x,p[1] + buttons[0].y) for p in img.outline(every = 1)]
+				pygame.draw.lines(self.display,'white',True,outline,2)
+				if click:
+					self.run()
+			elif buttons[1].collidepoint(mx//2,my//2):
+				outline = [(p[0] + buttons[1].x,p[1] + buttons[1].y) for p in img.outline(every = 1)]
+				pygame.draw.lines(self.display,'white',True,outline,2)
+				if click:
+					self.option()
+			elif buttons[2].collidepoint(mx//2,my//2):
+				outline = [(p[0] + buttons[2].x,p[1] + buttons[2].y) for p in img.outline(every = 1)]
+				pygame.draw.lines(self.display,'white',True,outline,2)
+				if click:
+					pygame.quit()
+					sys.exit()
+			
+			pygame.display.flip()
+	def option(self):
+		while True:
+			self.screen_shader.render(self.display)
+			self.display.fill('red')
+			if pygame.key.get_pressed()[pygame.K_o]:
+				self.run()
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					pygame.quit()
+					sys.exit()
+			pygame.display.flip()
+	def pause_game(self):
+		buttons = []
+		for i in range(3):
+			button = pygame.Rect(self.display.get_width()//2 - self.assets['menu'][0].get_width(),self.display.get_height()//2 + i*75,192,48)
+			buttons.append(button)
+		while True:
+			self.screen_shader.render(self.display)
+			self.display.fill('salmon')
+			mx,my = pygame.mouse.get_pos()
+			click = False
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					pygame.quit()
+					sys.exit()
+				if event.type == pygame.MOUSEBUTTONDOWN:
+					if event.button == 1:
+						click = True
+			img = pygame.mask.from_surface(pygame.transform.scale2x(self.assets['menu'][0]))
+			self.display.blit(pygame.transform.scale2x(self.assets['menu'][5]),buttons[0])
+			self.display.blit(pygame.transform.scale2x(self.assets['menu'][4]),buttons[1])
+			if buttons[0].collidepoint(mx//2,my//2):
+				outline = [(p[0] + buttons[0].x,p[1] + buttons[0].y) for p in img.outline(every = 1)]
+				pygame.draw.lines(self.display,'white',True,outline,2)
+				if click:
+					self.run()
+			elif buttons[1].collidepoint(mx//2,my//2):
+				outline = [(p[0] + buttons[1].x,p[1] + buttons[1].y) for p in img.outline(every = 1)]
+				pygame.draw.lines(self.display,'white',True,outline,2)
+				if click:
+					self.main_menu()
+			pygame.display.flip()
+	def run(self):
+		while True:
+			self.screen_shader.render(self.display)
+			self.dt = self.clock.tick(30)/1000
+			self.display.fill('#8A6556')
+			self.scroll[0] += (self.player.pos[0] - self.scroll[0] - self.display.get_size()[0]/2)/20
+			self.scroll[1] += (self.player.pos[1] - self.scroll[1] - self.display.get_size()[1]/2)/20
+			self.true_scroll =[int(self.scroll[0]),int(self.scroll[1])]
+			if self.screen_shake > 0:
+				self.scroll[0] += random.randint(0,8) - 4
+				self.scroll[1] += random.randint(0,8) - 4
+				self.screen_shake -= 1
+			self.scaling_factor_x = self.screen.get_width() / (self.display.get_width())
+			self.scaling_factor_y = self.screen.get_height() / (self.display.get_height())
+			self.key = pygame.key.get_pressed()
+			self.mouse_pos = pygame.mouse.get_pos()
+			self.mouse_pos = (self.mouse_pos[0]//self.scaling_factor_x + self.scroll[0], self.mouse_pos[1]//self.scaling_factor_y + self.scroll[1])
+			self.object_to_draw = []
 
-			# self.daynight.render()
-			# self.daynight.lightning([self.player.pos[0] - self.assets['light'][0].get_size()[0]/2,self.player.pos[1]- self.assets['light'][0].get_size()[1]/2],self.true_scroll,self.dt)
+			self.tile_map.render(self.display,self.true_scroll,self.object_to_draw,Chest_inventory(self))
+			self.check_chest = self.tile_map.check_chest(self.player.pos,self.display)
+			if len(self.tile_map.check_object(self.player.pos,'tree')) > 0:
+				if self.use['type'] == 'weapon' and self.use['variant'] == 1:
+					temp_tree = self.tile_map.check_object(self.player.pos,'tree')
+					if temp_tree != []:
+						tree = self.tile_map.map_data[temp_tree[0]['pos']]
+						if self.player.weapon.time_slash == 2:
+							tree['hp'] = max(0,tree['hp'] - 1)
+						if tree['hp'] == 0:
+							self.item_group.append(Item(self,'item',[tree['pos'][0] * self.tile_map.tile_size,tree['pos'][1]*self.tile_map.tile_size],[20,20]))
+							tree['type'] = 0
+			if len(self.tile_map.check_object(self.player.pos,'stone')) > 0:
+				if self.use['type'] == 'weapon' and self.use['variant'] == 2:
+					temp_tree = self.tile_map.check_object(self.player.pos,'stone')
+					if temp_tree != []:
+						tree = self.tile_map.map_data[temp_tree[0]['pos']]
+						if self.player.weapon.time_slash == 2 if self.player.weapon != None else False:
+							tree['hp'] = max(0,tree['hp'] - 1)
+						if tree['hp'] == 0:
+							self.item_group.append(Item(self,tree['type'],[tree['pos'][0] * self.tile_map.tile_size,tree['pos'][1]*self.tile_map.tile_size],[20,20]))
+							tree['type'] = 0
+
+			self.player.update(self.tile_map,((self.movement[3] - self.movement[2])*self.player_speed,(self.movement[1] - self.movement[0])*self.player_speed))
+			self.player.render(self.display,self.true_scroll,self.object_to_draw)
+			if self.use['type'] == 'weapon':
+				self.player.weapon = self.weapon_class[self.use['variant']]
+			else: 
+				self.player.weapon = self.weapon_class[6]
+			if self.player.weapon != None:
+				self.player.weapon.pos = (self.player.rect().centerx,self.player.rect().centery -4)
+				self.player.weapon.render(self.display,self.true_scroll,self.object_to_draw,self.mouse_pos)
+				# rect_weapon = self.player.weapon.rect()[1]
+				if self.use['type'] == 'weapon' and self.use['variant'] in [3]:
+					self.player.weapon.charge_shoot()
+			for elite in self.elite_group:
+				elite.update(self.tile_map)
+				elite.render(self.display,self.true_scroll,self.object_to_draw)
+				elite.weapon.pos = [elite.rect().centerx,elite.rect().centery - 5]
+				# elite.weapon.slash(1,self.player.rect().center)
+				elite.weapon.render(self.display,self.true_scroll,self.object_to_draw,self.player.rect().center)
+			for animal in self.animals:
+				animal.update(self.tile_map)
+				animal.render(self.display,self.true_scroll,self.object_to_draw)
+			for enemy in self.enemies:
+				enemy.update(self.tile_map)
+				enemy.render(self.display,self.true_scroll,self.object_to_draw)
+				enemy.weapon.pos = [enemy.rect().centerx,enemy.rect().centery - 4]
+				enemy.weapon.render(self.display,self.true_scroll,self.object_to_draw,self.player)
+			for i,item in sorted(enumerate(self.item_group),reverse = True):
+				if item.rect().colliderect(self.player.rect()):
+					self.player.inventory.add_item(item.type_e,0)
+					self.item_group.remove(item)
+				item.update(self.tile_map)
+				item.render(self.display,self.true_scroll,self.object_to_draw)
+			for bullet in self.bullets:
+				# bullet.update(self.tile_map)
+				bullet.render(self.display,self.true_scroll,self.object_to_draw,self.tile_map)
+			for i,slash in sorted(enumerate(self.slashs),reverse=True):
+				if slash.alive:
+					slash.perfect_collision(slash.target)
+					slash.render(self.display,self.true_scroll,self.object_to_draw,self.tile_map)
+				else:
+					self.slashs.remove(slash)
+
+			self.create_shadow_optimize(self.display,self.object_to_draw,self.true_scroll)
+			# self.create_shadow(self.display,self.object_to_draw,self.true_scroll,self.dt)
+			self.draw_object(self.display,self.object_to_draw,self.true_scroll,self.player)
+			
+			self.m_pos_screen = (pygame.mouse.get_pos()[0]//2,pygame.mouse.get_pos()[1]//2)
+
+			# PLAYER iNVENTORY
+			self.player.tool_bar.render(self.display)
+			self.player.health_bar.render(self.display,self.player.hp)
+			self.draw_text('HP',self.font,'red',self.display,[self.player.health_bar.pos[0] + 77,self.player.health_bar.pos[1] + 2])
+			self.player.energy_bar.render(self.display,self.player.energy)
+			self.draw_text('EN',self.font,'blue',self.display,[self.player.energy_bar.pos[0] + 77,self.player.energy_bar.pos[1] + 2])
+			if self.player.inventory.update == True or self.check_chest!=None:
+				self.player.inventory.render(self.display)
+			else:
+				loc = (self.mouse_pos[0]//self.tile_map.tile_size,self.mouse_pos[1]//self.tile_map.tile_size,self.tile_map.check_layer(self.use['type']))
+				test_distance = abs(int(self.player.pos[0]) - int(self.mouse_pos[0])) <= 300 and abs(int(self.player.pos[1]) - int(self.mouse_pos[1])) <=150
+				if self.use != None and self.use['quantity'] > 0 and self.use['type'] not in [0,'weapon'] and test_distance:
+					if self.use['type'] != 0:
+						if self.tile_map.map_data[loc]['type'] == 0:
+							# item_image = self.assets[self.use['type']][0].copy()
+							# item_image.set_alpha(150)
+							# self.display.blit(item_image,(self.tile_map.map_data[loc]['pos'][0]*self.tile_map.tile_size - self.true_scroll[0],self.tile_map.map_data[loc]['pos'][1]*self.tile_map.tile_size - self.true_scroll[1]))
+							pygame.draw.rect(self.display,'white',(self.tile_map.map_data[loc]['pos'][0]*self.tile_map.tile_size - self.true_scroll[0],self.tile_map.map_data[loc]['pos'][1]*self.tile_map.tile_size - self.true_scroll[1],self.tile_map.tile_size,self.tile_map.tile_size),1)
+						else:
+							pygame.draw.rect(self.display,'red',(self.tile_map.map_data[loc]['pos'][0]*self.tile_map.tile_size - self.true_scroll[0],self.tile_map.map_data[loc]['pos'][1]*self.tile_map.tile_size - self.true_scroll[1],self.tile_map.tile_size,self.tile_map.tile_size),1)
+						if pygame.mouse.get_pressed()[0]:
+							if loc in self.tile_map.map_data:
+								if self.tile_map.map_data[loc]['type'] == 0:
+									self.tile_map.place_block(self.mouse_pos,self.use['type'])
+									self.use['quantity'] -= 1
+									if self.use['quantity'] == 0:
+										self.use['type'] = 0
+										self.use['quantity'] = 0
+			self.tile_map.chest_inventory[self.check_chest]['inventory'].render(self.display) if self.check_chest != None else True
+			#menu
+
+			self.invent_icon.render(self.display)
+			self.setting_icon.render(self.display)
+			if pygame.key.get_pressed()[pygame.K_r]:
+				self.tile_map.place_block(self.mouse_pos,0)
+			self.daynight.render()
+			self.daynight.lightning([self.player.pos[0],self.player.pos[1]],self.true_scroll,self.dt)
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					pygame.quit()
+					sys.exit()
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_UP:
+						self.movement[0] = True
+					if event.key == pygame.K_DOWN:
+						self.movement[1] = True
+					if event.key == pygame.K_LEFT:
+						self.movement[2] = True
+					if event.key == pygame.K_RIGHT:
+						self.movement[3] = True
+					if event.key == pygame.K_y:
+						self.tile_map.place_struct([self.mouse_pos[0]//self.tile_map.tile_size,self.mouse_pos[1]//self.tile_map.tile_size])
+					if event.key == pygame.K_s:
+						self.player.inventory.sorted_storage()
+						self.player.tool_bar.sorted_storage()
+						self.tile_map.chest_inventory[self.check_chest]['inventory'].sorted_storage() if self.check_chest != None else True
+					if event.key == pygame.K_p:
+						self.pause_game()
+				if event.type == pygame.KEYUP:
+					if event.key == pygame.K_UP:
+						self.movement[0] = False
+					if event.key == pygame.K_DOWN:
+						self.movement[1] = False
+					if event.key == pygame.K_LEFT:
+						self.movement[2] = False
+					if event.key == pygame.K_RIGHT:
+						self.movement[3] = False
+
+				if event.type == pygame.MOUSEBUTTONDOWN:
+					self.player.inventory.replace_item(self.m_pos_screen,event,self.display) if (self.player.inventory.update == True or self.check_chest!=None) else True
+					self.tile_map.chest_inventory[self.check_chest]['inventory'].replace_item(self.m_pos_screen,event,self.display) if self.check_chest != None else True
+					self.player.tool_bar.replace_item(self.m_pos_screen,event,self.display) if (self.player.inventory.update == True or self.check_chest!=None) else True
+					self.use = self.player.tool_bar.get_box(self.m_pos_screen,event)
+
+					if self.invent_icon.check_mouse(pygame.mouse.get_pos(),event):
+						self.player.inventory.check_on()
+					if self.setting_icon.check_mouse(pygame.mouse.get_pos(),event):
+						self.pause_game()
+					if self.use['type'] == 'weapon' and self.use['variant'] in [0,1,2,4,5,6]:
+						self.weapon_class[self.use['variant']].slash(event,self.mouse_pos)
+					if self.player.weapon == self.weapon_class[6] and self.use['type'] == 0:
+						self.player.weapon.slash(event,self.mouse_pos)
+					if self.player.weapon == self.weapon_class[7]:
+						self.player.weapon.shoot_bullet(event,self.mouse_pos)
+				if event.type == pygame.MOUSEBUTTONUP:
+					if self.use['type'] == 'weapon' and self.use['variant'] in [3]:
+						self.weapon_class[self.use['variant']].shoot_arrow(event,self.mouse_pos)
+			
+			self.draw_text(f'{self.weapon_class[3].charge}',self.font,'black',self.display,[0,40])
 			# self.daynight.lightning([self.player.pos[0] - self.assets['light'].get_size()[0]/2,self.player.pos[1]- self.assets['light'].get_size()[1]/2],self.true_scroll,self.dt)
 			self.draw_text(f'FPS: {(self.clock.get_fps())}\nSEED: {int(self.tile_map.seed)}\nPOS: {[self.player.pos[0]//self.tile_map.tile_size,self.player.pos[1]//self.tile_map.tile_size]}',self.font,'black',self.display,[0,10])
 			pygame.display.flip()
+
 if __name__ == '__main__':
-	Game().run()
-
-
-
-
-
+	game = Game()
+	game.main_menu()

@@ -20,9 +20,24 @@ AUTOTILES_RULE = {
 }
 NEIGHTBOUER_POINT = [(0,1),(0,-1),(1,0),(-1,0),(0,0),(-1,-1),(-1,1),(1,-1),(1,1)]
 PHYSICAL_TILE = ['tree','stone','water','fence','wood_wall','rock','fence_stake','sand_stone','chest','wood_block']
-AUTOTILES_TYPES = ['stone','water','fence','wood_slab','wood_wall','grass','fence_stake','sand','sand_stone','wood_block']
+AUTOTILES_TYPES = ['stone','water','fence','wood_slab','wood_wall','fence_stake','sand_stone','wood_block']
 offgrid_tile = ['water','wood_slab','grass','sand']
 light_tile = ['torch']
+layer = {
+	'grass':1,
+	'sand':1,
+	'wood_slab':2,
+	'water':3,
+	'stone':3,
+	'fence':3,
+	'fence_stake':3,
+	'sand_stone':3,
+	'wood_block':3,
+	'chest':3,
+	'rock':3,
+	'wood_wall':3,
+	'reset':1,
+}
 object_hp = {
 	'tree': 10,
 	'stone':20,
@@ -79,7 +94,7 @@ class Tile_map():
 
 				tile_type = 'flower'
 				variant = random.randint(0, 1)
-			elif tree_noise > 0.4:
+			elif tree_noise > 0.5:
 				tile_type = 'tree'	
 				variant = random.randint(0,1)
 			# elif tree_noise <0.1:
@@ -104,10 +119,10 @@ class Tile_map():
 			octaves=1, persistence=0.5, lacunarity=2.0,
 			# base=self.seed
 		)
-		# if test_value < -0.6:
-		# 	tile_type = 0
-		# else:
-		tile_type = 'grass'
+		if test_value > 0.2:
+			tile_type = 'sand'
+		else:
+			tile_type = 'grass'
 		return {'type':tile_type,'variant':variant,'pos':(x,y,z)}
 	def check_infor(self,pos):
 		loc = (pos[0]//self.tile_size,pos[1]//self.tile_size)
@@ -132,27 +147,37 @@ class Tile_map():
 		tile = self.map_data[pos]
 		neighbors = set()
 		for shift in [(-1,0),(1,0),(0,-1),(0,1)]:
-			check_loc = (tile['pos'][0] + shift[0],tile['pos'][1] + shift[1],3)
+			check_loc = (tile['pos'][0] + shift[0],tile['pos'][1] + shift[1],tile['pos'][2])
 			if check_loc in self.map_data:
 				if self.map_data[check_loc]['type'] == tile['type']:
 					neighbors.add(shift)
 		neighbors = tuple(sorted(neighbors))
 		if (tile['type'] in AUTOTILES_TYPES) and (neighbors in AUTOTILES_RULE):
 			tile['variant'] = AUTOTILES_RULE[neighbors]
-	def place_block(self,pos,tile_type,layer):
-		check_loc = (int(pos[0]//self.tile_size),int(pos[1]//self.tile_size),3)
+	def place_block(self,pos,tile_type):
+		num = self.check_layer(tile_type)
+		check_loc = (int(pos[0]//self.tile_size),int(pos[1]//self.tile_size),num)
 		if check_loc in self.map_data:
 			if tile_type != 0:
 				if self.map_data[check_loc]['type'] == 0:
-					self.map_data[check_loc] = {'type':tile_type,'variant':0,'pos':(int(pos[0]//self.tile_size),int(pos[1]//self.tile_size),3),'hp': object_hp[tile_type if tile_type in object_hp else 'reset']}
+					self.map_data[check_loc] = {'type':tile_type,'variant':0,'pos':(int(pos[0]//self.tile_size),int(pos[1]//self.tile_size),num),'hp': object_hp[tile_type if tile_type in object_hp else 'reset']}
+
 			if tile_type == 0:
 				if self.map_data[check_loc]['type'] != 0:
-					self.map_data[check_loc] = {'type':0,'variant':0,'pos':(int(pos[0]//self.tile_size),int(pos[1]//self.tile_size),3),'hp': object_hp['reset']}
-	def check_chest_use(self,pos):
+					self.map_data[check_loc] = {'type':0,'variant':0,'pos':(int(pos[0]//self.tile_size),int(pos[1]//self.tile_size),num),'hp': object_hp['reset']}
+	def check_layer(self,tile_type):
+		num = layer[tile_type if tile_type in layer else 'reset']
+		return num
+	def check_object(self,pos,object):
 		loc = (pos[0]//self.tile_size,pos[1]//self.tile_size,3)
-		if loc in self.chest_inventory:
-			if self.chest_inventory[loc]['used'] == False:
-				self.chest_inventory[loc]['used'] = True
+		test = []
+		for offset in NEIGHTBOUER_POINT:
+			check_loc = (loc[0] + offset[0],loc[1] + offset[1],3)
+			if check_loc in self.map_data:
+				if self.map_data[check_loc]['type'] == object:
+					test.append(self.map_data[check_loc])
+		return test
+		
 
 	def place_struct(self,pos):
 		house_shape = [
@@ -183,7 +208,7 @@ class Tile_map():
 		random_struct = random.choice([house_shape])
 		for j,j_count in enumerate(random_struct):
 			for i,tile in enumerate(j_count):
-				self.map_data[(x+i,y+j,3)] = {'type':tile,'variant':0,'pos':(x + i,y +j,3),'hp':object_hp[tile if tile in object_hp else 'reset']}
+				self.map_data[(x+i,y+j,layer[tile if tile in layer else 'reset' ])] = {'type':tile,'variant':0,'pos':(x + i,y +j,layer[tile if tile in layer else 'reset' ]),'hp':object_hp[tile if tile in object_hp else 'reset']}
 	def check_solid(self,pos):
 		check_loc = str(pos[0]//self.tile_size) +';' + str(pos[1]//self.tile_size)
 		if check_loc in self.map_data:
@@ -198,6 +223,11 @@ class Tile_map():
 				if self.map_data[check_loc]['type'] == 'chest':
 					return check_loc
 		return None
+	def check_chest_use(self,pos):
+		loc = (pos[0]//self.tile_size,pos[1]//self.tile_size,3)
+		if loc in self.chest_inventory:
+			if self.chest_inventory[loc]['used'] == False:
+				self.chest_inventory[loc]['used'] = True
 	def render(self, surf, offset, object_to_draw,invent):
 		for x in range(offset[0] // self.tile_size - 1, (offset[0] + surf.get_width()) // self.tile_size + 2):
 			for y in range(offset[1] // self.tile_size -1, (offset[1] + surf.get_height()) // self.tile_size + 3):

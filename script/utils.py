@@ -52,8 +52,8 @@ class DayNight:
 		self.game = game
 		self.display_surf = pygame.Surface((self.game.display.get_size()[0],self.game.display.get_size()[1]))
 		self.start_color = [255,255,255]
-		self.end_color = (38,101,189)
-		# self.end_color = (38,38,38)
+		# self.end_color = (38,101,189)
+		self.end_color = (10,10,10)
 		self.reset_color = [255,255,255]
 		self.current_time = int(datetime.now().strftime('%M'))
 		self.stat = 'day'
@@ -61,11 +61,11 @@ class DayNight:
 		
 		for i,value in enumerate(self.start_color):
 				if self.start_color[i] > self.end_color[i] and self.stat == 'day':
-					self.start_color[i] -= 2 * dt
+					self.start_color[i] -= 1 * dt
 					if self.start_color[0] <= 38:
 						self.stat = 'night'
 				elif self.start_color[i] < self.reset_color[i] and self.stat == 'night':
-					self.start_color[i] += 2 * dt
+					self.start_color[i] += 1 * dt
 					if self.start_color[0] >= 255:
 						self.stat = 'day'
 			
@@ -74,45 +74,32 @@ class DayNight:
 		# self.display_surf.blit(self.game.assets['light'],(pos[0] - offset[0],pos[1] - offset[1]),special_flags = pygame.BLEND_RGB_ADD)
 	def render(self):
 		self.game.display.blit(self.display_surf,(0,0),special_flags = pygame.BLEND_MULT)
-class Button():
-	def __init__(self,img,pos,size):
-		self.img = img
-		self.pos = pos
-		self.size = size
-		self.reset_pos = self.pos[0]
-		self.start_pos = self.pos[0] - 200
-		self.clicked = False
-		self.max_scale = self.size[0] + 10
-		self.default_scale = self.size[0]
-	def rect(self):
-		return pygame.Rect(self.pos[0],self.pos[1],self.size[0],self.size[1])
-	def animate(self):
-		if self.pos[0] < self.reset_pos:
-			self.pos[0] += 10
-	def scale_button(self):
-		if self.size[0] < self.max_scale:
-			self.size[0] *= 1.1
-		return self.size[0]
-	def draw(self,surf):
-		action = False
-		rect = self.rect()
-		m_pos = pygame.mouse.get_pos()
-		if rect.collidepoint((m_pos[0]//2,m_pos[1]//2)):
-			self.size[0] = int(self.scale_button())
-			self.img.set_alpha(235)
-			if pygame.mouse.get_pressed()[0]and self.clicked == False:
-				self.clicked = True
-				action = True
-		else:
-			self.size[0] = self.default_scale
-			self.img.set_alpha(255)
-		if pygame.mouse.get_pressed()[0]:
-			self.clicked = False
-		self.animate()
-		surf.blit(pygame.transform.scale(self.img,(self.size[0],self.size[1])),(self.pos[0],self.pos[1]))
-		# pygame.draw.rect(surf,'red',rect)
 
-		return action
+class GUI_bar():
+	def __init__(self,pos,size,hp,max_hp,color):
+		self.pos = pos 
+		self.size = size
+		self.hp = hp 
+		self.max_hp = max_hp
+		self.color = color
+	def update_health(self,hp):
+		self.hp = hp
+		return self.hp/self.max_hp
+	def render(self,surf,hp):
+		pygame.draw.rect(surf,'#3A243E',(self.pos[0],self.pos[1],self.size[0],self.size[1]))
+		pygame.draw.rect(surf,self.color,(self.pos[0] + 2,self.pos[1] + 2,self.size[0]*self.update_health(hp) -4,self.size[1] -4))
+class Health_bar(GUI_bar):
+	def __init__(self, pos, size, hp, max_hp):
+		super().__init__(pos, size, hp, max_hp,(255,69,69))
+	def render(self,surf,hp):
+		super().render(surf,hp)
+class Energy_bar(GUI_bar):
+	def __init__(self, pos, size, hp, max_hp):
+		super().__init__(pos, size, hp, max_hp,'#1669F7')
+	def render(self,surf,energy):
+		super().render(surf,energy)
+
+
 class Hot_bar():
 	def __init__(self,game,pos,size,tile_size,variant):
 		self.game = game
@@ -134,6 +121,8 @@ class Hot_bar():
 		for til in self.grid:
 			tile = self.grid[til]
 			surf.blit(self.game.assets[tile['type']][tile['variant']],(tile['pos'][0]*self.tile_size,tile['pos'][1]*self.tile_size))
+
+
 class Inventory_icon(Hot_bar):
 	def __init__(self,game,pos,size,tile_size):
 		super().__init__(game,pos,size,tile_size,6)

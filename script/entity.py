@@ -3,7 +3,7 @@ import pygame,random
 # class Item():
 # 	def __init__(self,type_i,quantity):
 test_storage =  ['weapon'] #+ ['stone','water','fence','wood_slab','wood_wall','grass','fence_stake','sand','sand_stone','chest','wood_block']
-can_stack_item = ['stone','water','fence','wood_slab','wood_wall','grass','fence_stake','sand','sand_stone','chest','wood_block']
+can_stack_item = ['stone','water','fence','wood_slab','wood_wall','grass','fence_stake','sand','sand_stone','chest','wood_block','item']
 tool_item = ['weapon']
 class Inventory():
 	def __init__(self,game,pos,size,item_size):
@@ -19,7 +19,7 @@ class Inventory():
 		self.range_y = self.size[1]//self.item_size
 		for j in range(self.range_x):
 			for i in range(self.range_y):
-				self.storage[(self.x_move + i,self.y_move + j)] = {'type':0,'pos':(self.x_move + i,self.y_move + j),'quantity':1,'variant':0}
+				self.storage[(self.x_move + i,self.y_move + j)] = {'type':0,'pos':(self.x_move + i,self.y_move + j),'quantity':20,'variant':0}
 	def rect(self):
 		return pygame.Rect(self.x_move*self.item_size,self.y_move*self.item_size,self.size[1],self.size[0])
 	def random_item(self):
@@ -28,8 +28,9 @@ class Inventory():
 				type_item = random.choice(test_storage)
 				variant = 0
 				if type_item in tool_item:
-					variant = random.randint(0,5)
-				self.storage[(self.x_move + i,self.y_move + j)] = {'type':type_item,'pos':(self.x_move + i,self.y_move + j),'quantity':1,'variant':variant}
+					t  = random.randint(0,7)
+					variant = (t if t != 6 else 0)
+				self.storage[(self.x_move + i,self.y_move + j)] = {'type':type_item,'pos':(self.x_move + i,self.y_move + j),'quantity':20,'variant':variant}
 	def sorted_storage(self):
 		type_item = set()
 		item_quantity = {}
@@ -53,7 +54,19 @@ class Inventory():
 					self.storage[j]['quantity'] = list(item_quantity.values())[i][0]
 					item_quantity[index][1] = True
 
-					
+	def add_item(self,item_type,variant):
+		have = False
+		for i in self.storage:
+			if self.storage[i]['type'] == item_type and self.storage[i]['variant'] == variant:
+				self.storage[i]['quantity'] += 1
+				have = True
+		for i in self.storage:
+			if self.storage[i]['type'] == 0 and have == False:
+				self.storage[i]['type'] = item_type
+				self.storage[i]['variant'] = variant
+				self.storage[i]['quantity'] = 1
+				break
+			
 	def replace_item(self,pos,event,surf):
 		loc = (pos[0]//self.item_size,pos[1]//self.item_size)
 		if loc in self.storage:
@@ -105,9 +118,9 @@ class Player_inventory(Inventory):
 		super().render(surf)
 class Player_tool_bar(Inventory):
 	def __init__(self,game):
-		super().__init__(game,((game.monitorsize[0]//4 - 180//4)//30,0),(30,180),30)
+		super().__init__(game,((game.monitorsize[0]//4 - 180//4)//30,(game.monitorsize[1]//2.15 - 30//4)//30),(30,180),30)
 		self.hold_num = 0
-		super().random_item()
+		# super().random_item()
 	# def get_box(self,pos,event):
 	# 	# loc = (pos[0]//self.item_size,pos[1]//self.item_size)
 	# 	if event.unicode in ['1','2','3','4','5','6']:
@@ -141,7 +154,7 @@ class Chest_inventory(Inventory):
 
 
 class Physical_Entity():
-	def __init__(self,game,type_e,pos,size):
+	def __init__(self,game,type_e,pos,size,hp):
 		self.type_e = type_e
 		self.game = game 
 		self.pos = pos
@@ -150,7 +163,10 @@ class Physical_Entity():
 		self.flip = False
 		self.set_action('idle')
 		self.collision = {'up':False,'down':False,'left':False,'right':False}
-
+		self.hp = hp 
+		self.max_hp = hp 
+		self.energy = 20
+		self.max_energy = 20
 	def rect(self):
 		return pygame.Rect(self.pos[0],self.pos[1],self.size[0],self.size[1])
 	def set_action(self,action):
@@ -188,25 +204,29 @@ class Physical_Entity():
 			self.flip = True
 		self.animation.update()
 	def render(self,surf,offset,object_to_draw):
-		object_to_draw.append([pygame.transform.flip(self.animation.img(),self.flip,False),pygame.Rect(self.rect().x,self.rect().y - 18,self.animation.img().get_width(),self.animation.img().get_height())])
+		object_to_draw.append([pygame.transform.flip(self.animation.img(),self.flip,False),pygame.Rect(self.rect().x,self.rect().y - self.animation.img().get_width()//1.31,self.animation.img().get_width(),self.animation.img().get_height())])
 
 class Player(Physical_Entity):
 	def __init__(self,game,pos,size):
-		super().__init__(game,'player',pos,size)
+		super().__init__(game,'player2',pos,size,20)
 		self.test = 0
 		self.inventory = Player_inventory(self.game)
 		self.tool_bar = Player_tool_bar(self.game)
+		self.health_bar = None
+		self.energy_bar = None
 		self.weapon = None
 	def update(self,tile_map,movement = (0,0)):
 		super().update(tile_map,movement = movement)
-
 		if movement[0] != 0 or movement[1] != 0:
 			self.set_action('run')
 		else:
 			self.set_action('idle')
+	def render(self, surf, offset, object_to_draw):
+		object_to_draw.append([pygame.transform.flip(self.animation.img(),self.flip,False),pygame.Rect(self.rect().x,self.rect().y - 24,self.animation.img().get_width(),self.animation.img().get_height())])
+
 class Dafluffy(Physical_Entity):
 	def __init__(self,game,pos,size):
-		super().__init__(game,'dafluffy',pos,size)
+		super().__init__(game,'dafluffy',pos,size,20)
 		self.walking = 0
 		self.move = [0,0]
 		self.weapon = None
@@ -228,3 +248,137 @@ class Dafluffy(Physical_Entity):
 			self.set_action('run')
 		else:
 			self.set_action('idle')
+	def render(self, surf, offset, object_to_draw):
+		object_to_draw.append([pygame.transform.flip(self.animation.img(),self.flip,False),pygame.Rect(self.rect().x,self.rect().y - 16,self.animation.img().get_width(),self.animation.img().get_height())])
+
+class Deer(Physical_Entity):
+	def __init__(self,game,pos,size):
+		super().__init__(game,'deer',pos,size,20)
+		self.walking = 0
+		self.move = [0,0]
+		self.weapon = None
+	def update(self,tile_map,movement = (0,0)):
+		if self.walking:
+			# if tile_map.check_solid([self.rect().centerx + (-5 if self.flip else 5),self.rect().centery + (-5 if self.flip else 5)]):
+			# 	self.move[0] = -self.move[0]
+			# 	self.move[1] = -self.move[1]
+		
+			# 	self.flip = tile_map.check_solid([self.rect().centerx + (-7 if self.flip else 7),self.rect().centery + (-7 if self.flip else 7)])
+			movement = (movement[0] + self.move[0],movement[1] + self.move[1])
+			self.walking = max(0,self.walking -1)
+		else:
+			self.move[0] = random.choice([-2,0,2])
+			self.move[1] = random.choice([-2,0,2])
+			self.walking = random.randint(30,120)
+		super().update(tile_map,movement = movement)
+		if movement[0] != 0 or movement[1] != 0:
+			self.set_action('run')
+		else:
+			self.set_action('idle')
+	def render(self, surf, offset, object_to_draw):
+		object_to_draw.append([pygame.transform.flip(self.animation.img(),self.flip,False),pygame.Rect(self.rect().x,self.rect().y - 8,self.animation.img().get_width(),self.animation.img().get_height())])
+
+class Homeless(Physical_Entity):
+	def __init__(self,game,pos,size):
+		super().__init__(game,'homeless',pos,size,20)
+		self.walking = 0
+		self.reset = 0
+		self.offset_x = random.randrange(-300,300)
+		self.offset_y = random.randrange(-300,300)
+		self.move = [0,0]
+		self.weapon = None
+		self.target = None
+		self.attack = False
+		self.attack_time = 0
+		self.speed = 1.5
+	def update(self,tile_map,movement = (0,0)):
+		direct = (0,0)
+		direct = (movement[0] + self.move[0],movement[1] + self.move[1])
+		self.move = [0,0]
+		if self.reset == 0:
+			self.offset_x = random.randrange(-300,300)
+			self.offset_y = random.randrange(-300,300)
+			self.reset = random.randrange(30,50)
+		else:
+			self.reset -= 1
+		distance = 200
+		test_distance = abs(self.target.rect().centerx - self.rect().centerx) <= self.game.display.get_width()//2 and abs(self.target.rect().centery - self.rect().centery) <= self.game.display.get_height()//2
+		if test_distance:	
+			if self.target.rect().x + self.offset_x >= self.rect().x:
+				self.move[0] = self.speed
+			elif self.target.rect().x + self.offset_x <= self.rect().x:
+				self.move[0] = -self.speed
+
+			if self.target.rect().y + self.offset_y >= self.rect().y:
+				self.move[1] = self.speed
+			elif self.target.rect().y + self.offset_y <= self.rect().y:
+				self.move[1] = -self.speed
+			distance = self.weapon.distance
+			test_distance = abs(self.target.rect().centerx - self.rect().centerx) <= distance and abs(self.target.rect().centery - self.rect().centery) <= distance
+			if test_distance:
+				if self.attack and self.attack_time == 0:
+					self.weapon.slash(1,self.target)
+					self.attack_time = 20
+			self.attack_time = max(0,self.attack_time - 0.25)
+			if self.attack_time == 0:
+				self.attack = True
+		else:
+			if self.walking > 0:
+				self.walking = max(0,self.walking -1)
+			else:
+				self.move[0] = random.randint(-1,1)
+				self.move[1] = random.randint(-1,1)
+				self.walking = random.randint(30,120)
+		super().update(tile_map,movement = direct)
+		if direct[0] != 0 or direct[1] != 0:
+			self.set_action('run')
+		else:
+			self.set_action('idle')
+	def render(self, surf, offset, object_to_draw):
+		object_to_draw.append([pygame.transform.flip(self.animation.img(),self.flip,False),pygame.Rect(self.rect().x,self.rect().y - 24,self.animation.img().get_width(),self.animation.img().get_height())])
+
+class Item(Physical_Entity):
+	def __init__(self, game, type_e, pos,size):
+		super().__init__(game, type_e, pos, size,1)
+		self.size = size
+	def set_action(self,action):
+		if action!=self.action:
+			self.action = action
+	def update(self,tile_map,movement = [0,0]):
+		self.collision = {'up':False,'down':False,'left':False,'right':False}
+		movement[0] = random.randint(-1,1)
+		movement[1] = random.randint(-1,1)
+		self.move_direct = pygame.math.Vector2(movement[0],movement[1])
+		self.pos[0] += self.move_direct.x
+		entity_rect = self.rect()
+		for rect in tile_map.get_rect_tile(self.pos):
+			if entity_rect.colliderect(rect):
+				if movement[0] > 0:
+					entity_rect.right = rect.left
+					self.collision['right'] = True
+				if movement[0] < 0:
+					entity_rect.left = rect.right
+					self.collision['left'] = True
+				self.pos[0] = entity_rect.x
+		self.pos[1] += self.move_direct.y
+		entity_rect = self.rect()
+		for rect in tile_map.get_rect_tile(self.pos):
+			if entity_rect.colliderect(rect):
+				if movement[1] > 0:
+					entity_rect.bottom = rect.top
+					self.collision['down'] = True
+				if movement[1] < 0:
+					entity_rect.top = rect.bottom
+					self.collision['up'] = True
+				self.pos[1] = entity_rect.y
+		if movement[0] > 0:
+			self.flip = False
+		if movement[0] < 0:
+			self.flip = True
+	def convert_size(self,surf):
+		return pygame.transform.scale(surf,(self.size[0],self.size[1]))
+	def render(self,surf,offset,object_to_draw):
+		object_to_draw.append([self.convert_size(self.game.assets[self.type_e][0]),
+						 pygame.Rect(self.rect().x,self.rect().y,
+						self.size[0],
+						self.size[1])])
