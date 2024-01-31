@@ -10,7 +10,7 @@ uniform vec2 t;
 uniform float time;
 out vec4 color;
 vec4 Warm_color(vec4 p) {
-    p.r = p.r * 1.3;
+    p.r = p.r * 1.4;
     p.g = p.g * 0.95;
     p.b = p.b * 1.02;
     return vec4(p.r, p.g, p.b, 1.0);
@@ -57,10 +57,11 @@ void main() {
     originalColor = Warm_color(originalColor);
     originalColor = Cold_color(originalColor);
     originalColor = Green_color(originalColor);
-
+    
 
 
     // Assign the modified color to the output
     color = originalColor;
+    //color.rgb = color.rbg;
 
 }

@@ -2,6 +2,7 @@ import os
 import pygame
 import random
 from datetime import datetime
+from math import sin,pi
 
 def load_image(path):
 		
@@ -52,26 +53,22 @@ class DayNight:
 		self.game = game
 		self.display_surf = pygame.Surface((self.game.display.get_size()[0],self.game.display.get_size()[1]))
 		self.start_color = [255,255,255]
-		# self.end_color = (38,101,189)
-		self.end_color = (10,10,10)
-		self.reset_color = [255,255,255]
+		self.end_color = [50,50,50]
 		self.current_time = int(datetime.now().strftime('%M'))
 		self.stat = 'day'
-	def lightning(self,pos,offset,dt):
-		
-		for i,value in enumerate(self.start_color):
-				if self.start_color[i] > self.end_color[i] and self.stat == 'day':
-					self.start_color[i] -= 1 * dt
-					if self.start_color[0] <= 38:
-						self.stat = 'night'
-				elif self.start_color[i] < self.reset_color[i] and self.stat == 'night':
-					self.start_color[i] += 1 * dt
-					if self.start_color[0] >= 255:
-						self.stat = 'day'
-			
+		self.time = 20
+	def lightning(self,dt,pos,offset):
+		self.time += 0.0001
+		value = max(30,abs(sin(self.time))*255)
+		self.start_color = (value,value,value)
 		self.display_surf.fill(self.start_color)
-		# if self.stat == 'night':
-		# self.display_surf.blit(self.game.assets['light'],(pos[0] - offset[0],pos[1] - offset[1]),special_flags = pygame.BLEND_RGB_ADD)
+		# image_light = self.game.assets['light'][2]
+		# image_size = list(image_light.get_size())
+		# scale_factor = max(0, abs(sin(pygame.time.get_ticks() * 0.001)))
+		# image_size[0] = int(600 + 50 * scale_factor)  
+		# image_size[1] = int(300 + 50 * scale_factor)
+		# self.display_surf.blit(pygame.transform.scale(image_light,image_size),(pos[0] - offset[0] - image_size[0]//2,pos[1] - offset[1] - image_size[1]//2),special_flags = pygame.BLEND_RGB_ADD)
+
 	def render(self):
 		self.game.display.blit(self.display_surf,(0,0),special_flags = pygame.BLEND_MULT)
 
@@ -86,8 +83,8 @@ class GUI_bar():
 		self.hp = hp
 		return self.hp/self.max_hp
 	def render(self,surf,hp):
-		pygame.draw.rect(surf,'#3A243E',(self.pos[0],self.pos[1],self.size[0],self.size[1]))
-		pygame.draw.rect(surf,self.color,(self.pos[0] + 2,self.pos[1] + 2,self.size[0]*self.update_health(hp) -4,self.size[1] -4))
+		pygame.draw.rect(surf,'#0e0c0c',(self.pos[0],self.pos[1],self.size[0],self.size[1]))
+		pygame.draw.rect(surf,self.color,(self.pos[0] + 2,self.pos[1] + 2,(self.size[0] - 4)*self.update_health(hp),self.size[1] -4))
 class Health_bar(GUI_bar):
 	def __init__(self, pos, size, hp, max_hp):
 		super().__init__(pos, size, hp, max_hp,(255,69,69))
@@ -144,12 +141,12 @@ class Inventory_icon(Hot_bar):
 		super().render(surf)
 class Setting_icon(Hot_bar):
 	def __init__(self,game,pos,size,tile_size):
-		super().__init__(game,pos,size,tile_size,5)
+		super().__init__(game,pos,size,tile_size,9)
 	def check_mouse(self,pos,event):
 		action = False
 		loc = (pos[0] // self.tile_size//2,pos[1]//self.tile_size//2)
 		if loc in self.grid:
-			if self.grid[loc]['type'] == 'menu' and self.grid[loc]['variant'] == 5:
+			if self.grid[loc]['type'] == 'menu' and self.grid[loc]['variant'] == 9:
 				if event.button == 1:
 					action = True
 			

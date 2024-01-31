@@ -1,5 +1,6 @@
 import pygame,noise,random
-
+from script.setting import PHYSICAL_TILE,AUTOTILES_TYPES,offgrid_tile,object_hp,light_tile,layer
+from script.inventory import Chest_inventory
 AUTOTILES_RULE = {
 	tuple():0,
 	tuple(sorted([(1,0)])) : 1,
@@ -19,35 +20,7 @@ AUTOTILES_RULE = {
 	tuple(sorted([(0,-1),(0,1),(-1,0),(1,0)])) :15,
 }
 NEIGHTBOUER_POINT = [(0,1),(0,-1),(1,0),(-1,0),(0,0),(-1,-1),(-1,1),(1,-1),(1,1)]
-PHYSICAL_TILE = ['tree','stone','water','fence','wood_wall','rock','fence_stake','sand_stone','chest','wood_block']
-AUTOTILES_TYPES = ['stone','water','fence','wood_slab','wood_wall','fence_stake','sand_stone','wood_block']
-offgrid_tile = ['water','wood_slab','grass','sand']
-light_tile = ['torch']
-layer = {
-	'grass':1,
-	'sand':1,
-	'wood_slab':2,
-	'water':3,
-	'stone':3,
-	'fence':3,
-	'fence_stake':3,
-	'sand_stone':3,
-	'wood_block':3,
-	'chest':3,
-	'rock':3,
-	'wood_wall':3,
-	'reset':1,
-}
-object_hp = {
-	'tree': 10,
-	'stone':20,
-	'flower':5,
-	'water':10,
-	'rock':15,
-	'wood_slab':10,
-	'reset':1,
-	'chest':10,
-}
+
 class Tile_map():
 	def __init__(self,game,tile_size):
 		self.map_data = {}
@@ -58,7 +31,8 @@ class Tile_map():
 		self.auto = True
 		self.offgrid = []
 		self.chest_inventory = {}
-	def generate_chunk(self, x, y,z):
+		self.interact_tile = {}
+	def generate_chunk(self, x, y):
 		tile_type = 0
 		variant = 0
 		z = 3
@@ -74,29 +48,35 @@ class Tile_map():
 		biom_noise = noise.pnoise2(x/self.tile_size*0.05 + self.seed, y/self.tile_size*0.05 + self.seed, base=self.seed)
 		tree_noise = noise.pnoise2(x/self.tile_size*1.5 + self.seed, y * self.modifier + self.seed, base=random.randint(0, 100))
 		flower_noise = noise.pnoise2(x * self.modifier + self.seed, y * self.modifier + self.seed, base=random.randint(0, 100))
+		struct_noise = noise.pnoise2(x * self.modifier + self.seed, y * self.modifier + self.seed, base=random.randint(0, 100))
 		bush_noise = noise.pnoise2(x*0.1  + self.seed, y*0.1  + self.seed, base=self.seed)
+
 		if biom_noise > 0.2:
 			if test_value > 0.2:
-				tile_type = 'tree'
-				variant = 1
-		else:
-			if test_value > 0.2 and water_noise < 0.2:
-				tile_type = 'stone'
+				tile_type = 'solid_stone'
 			elif water_noise > 0.2:
-				if water_noise > 0.3:
+				tile_type = 'solid_water'
+			elif tree_noise > 0.5:
+				tile_type = 'tree'
+				variant = random.randint(2,3)
+		else:
+			if struct_noise > 0.8:
+				self.place_struct([x + 1,y + 1])
+			# elif test_value > 0.2 and water_noise < 0.2:
+			# 	tile_type = 'stone'
+			elif water_noise > 0.2:
+				if water_noise > 0.23:
 					tile_type = 'water'
-			elif bush_noise > 0.3:
+			elif bush_noise > 0.5:
 				tile_type = 'flower'
-				variant = 2
+				variant = 0
 			elif random.random() < 0.005:
 				tile_type = 'rock'
-			elif random.random() < 0.007:
-
-				tile_type = 'flower'
-				variant = random.randint(0, 1)
-			elif tree_noise > 0.5:
+			
+			elif tree_noise > 0.45:
 				tile_type = 'tree'	
-				variant = random.randint(0,1)
+				variant = random.randint(0,2)
+			
 			# elif tree_noise <0.1:
 			# 	self.place_struct((x,y))
 			# tile_type = 'grass'
@@ -107,7 +87,23 @@ class Tile_map():
 		# 	for j,j_count in enumerate(house_shape):
 		# 		for i,tile in enumerate(j_count):
 		# 			self.map_data[str(x + i) + ';' + str(y + j)] = {'type':tile,'variant':0,'pos':(x + i,y +j)}
-		return {'type':tile_type,'variant':variant,'pos':(x,y,z),'hp':object_hp[tile_type if tile_type!=0 else 'reset']}
+		return {'type':tile_type,'variant':variant,'pos':(x,y,z),'hp':object_hp[tile_type if tile_type in object_hp else 'reset']}
+	def generate_chunk_middle(self,x,y,z):
+		variant = 0
+		tile_type = 0
+		z =2
+		scale = 0.5
+		water_noise = noise.pnoise2(x/self.tile_size*scale + 1 + self.seed, y/self.tile_size*scale + 1 + self.seed, base=self.seed)
+		if water_noise > 0.2:
+			if water_noise > 0.3:
+				tile_type = 0
+		elif random.random() < 0.1:
+			tile_type = 'flower'
+			variant = random.randint(1, 5)
+
+		
+		return {'type':tile_type,'variant':variant,'pos':(x,y,z),'hp':object_hp[tile_type if tile_type in object_hp else 'reset']}
+		
 	def generate_chunk_base(self,x,y,z):
 		variant = 0
 		tile_type = 0
@@ -119,11 +115,22 @@ class Tile_map():
 			octaves=1, persistence=0.5, lacunarity=2.0,
 			# base=self.seed
 		)
-		if test_value > 0.2:
-			tile_type = 'sand'
+		biom_noise = noise.pnoise2(x/self.tile_size*0.05 + self.seed, y/self.tile_size*0.05 + self.seed, base=self.seed)
+		water_noise = noise.pnoise2(x/self.tile_size*scale + 1 + self.seed, y/self.tile_size*scale + 1 + self.seed, base=self.seed)
+
+		if biom_noise > 0.2:
+			tile_type = 'solid_dirt'
+			variant = 0
+			if water_noise > 0.6:
+				variant = 0 
+			elif water_noise > 0.55:
+				variant = 1
 		else:
-			tile_type = 'grass'
-		return {'type':tile_type,'variant':variant,'pos':(x,y,z)}
+			if test_value > -0.2 and water_noise < 0.2:
+				tile_type = 'grass'
+			else:
+				tile_type = 'grass'
+		return {'type':tile_type,'variant':variant,'pos':(x,y,z),'hp':object_hp[tile_type if tile_type in object_hp else 'reset']}
 	def check_infor(self,pos):
 		loc = (pos[0]//self.tile_size,pos[1]//self.tile_size)
 		if loc in self.map_data:
@@ -168,14 +175,21 @@ class Tile_map():
 	def check_layer(self,tile_type):
 		num = layer[tile_type if tile_type in layer else 'reset']
 		return num
-	def check_object(self,pos,object):
-		loc = (pos[0]//self.tile_size,pos[1]//self.tile_size,3)
+	def check_object(self,pos,object,direct,layer_id):
+		loc = (pos[0]//self.tile_size,pos[1]//self.tile_size)
 		test = []
-		for offset in NEIGHTBOUER_POINT:
-			check_loc = (loc[0] + offset[0],loc[1] + offset[1],3)
-			if check_loc in self.map_data:
-				if self.map_data[check_loc]['type'] == object:
-					test.append(self.map_data[check_loc])
+		if type(object) != tuple:
+			for offset in [direct]:
+				check_loc = (loc[0] + offset[0],loc[1] + offset[1],layer_id)
+				if check_loc in self.map_data:
+					if self.map_data[check_loc]['type'] == object:
+						test.append(self.map_data[check_loc])
+		else:
+			for offset in [direct]:
+				check_loc = (loc[0] + offset[0],loc[1] + offset[1],layer_id)
+				if check_loc in self.map_data:
+					if self.map_data[check_loc]['type'] in object:
+						test.append(self.map_data[check_loc])
 		return test
 		
 
@@ -190,22 +204,21 @@ class Tile_map():
 		['stone','stone','stone','stone',0,0,'stone'],
 		]
 		barracks = [
-		['fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake'],
-		['fence_stake',0,0,0,0,0,0,0,0,0,0,0,'fence_stake'],
-		['fence_stake',0,'wood_block','wood_block','wood_block','wood_block','wood_block','wood_block','wood_block','wood_block','wood_block',0,'fence_stake'],
-		['fence_stake',0,'wood_block','chest','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
-		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
-		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
-		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
-		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
-		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
-		['fence_stake',0,'wood_block','wood_block','wood_block','wood_block',0,'wood_block','wood_block','wood_block','wood_block',0,'fence_stake'],
-		['fence_stake',0,0,0,0,0,0,0,0,0,0,0,'fence_stake'],
-		['fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake',0,'fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake'],
+		['fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake'],
+		['fence_stake',0,0,0,0,0,0,0,0,0,'fence_stake'],
+		['fence_stake',0,'wood_block','wood_block','wood_block','wood_block','wood_block','wood_block','wood_block',0,'fence_stake'],
+		['fence_stake',0,'wood_block','chest','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
+		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
+		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
+		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
+		['fence_stake',0,'wood_block','wood_slab','wood_slab','wood_slab','wood_slab','wood_slab','wood_block',0,'fence_stake'],
+		['fence_stake',0,'wood_block','wood_block',0,'wood_block','wood_block','wood_block','wood_block',0,'fence_stake'],
+		['fence_stake',0,0,0,0,0,0,0,0,0,'fence_stake'],
+		['fence_stake','fence_stake','fence_stake','fence_stake',0,'fence_stake','fence_stake','fence_stake','fence_stake','fence_stake','fence_stake'],
 		]
 		x,y = pos
 		tile_type = 'stone'
-		random_struct = random.choice([house_shape])
+		random_struct = random.choice([barracks,house_shape])
 		for j,j_count in enumerate(random_struct):
 			for i,tile in enumerate(j_count):
 				self.map_data[(x+i,y+j,layer[tile if tile in layer else 'reset' ])] = {'type':tile,'variant':0,'pos':(x + i,y +j,layer[tile if tile in layer else 'reset' ]),'hp':object_hp[tile if tile in object_hp else 'reset']}
@@ -228,7 +241,7 @@ class Tile_map():
 		if loc in self.chest_inventory:
 			if self.chest_inventory[loc]['used'] == False:
 				self.chest_inventory[loc]['used'] = True
-	def render(self, surf, offset, object_to_draw,invent):
+	def render(self, surf, offset, object_to_draw):
 		for x in range(offset[0] // self.tile_size - 1, (offset[0] + surf.get_width()) // self.tile_size + 2):
 			for y in range(offset[1] // self.tile_size -1, (offset[1] + surf.get_height()) // self.tile_size + 3):
 				for z in range(1,4):
@@ -237,22 +250,23 @@ class Tile_map():
 						if z == 1:
 							self.map_data[target_chunk] = self.generate_chunk_base(x, y,z)
 						elif z == 2:
-							self.map_data[target_chunk] = {'type':0,'variant':0,'pos':(x,y,z),'hp':object_hp['reset']}
+							self.map_data[target_chunk] = self.generate_chunk_middle(x,y,z)
 						elif z == 3:
-							self.map_data[target_chunk] = self.generate_chunk(x, y,z)
+							self.map_data[target_chunk] = self.generate_chunk(x, y)
 
 					if target_chunk in self.map_data:
 						tile = self.map_data[target_chunk]
 
-						if tile['type'] != 0 and tile['type'] not in offgrid_tile and tile['type'] != 'tree':
+						if tile['type'] != 0 and tile['type'] not in offgrid_tile and tile['type'] != 'tree' and target_chunk not in self.interact_tile:
+							
 							object_to_draw.append([self.game.assets[tile['type']][tile['variant']],
-												   pygame.Rect(tile['pos'][0] * self.tile_size,
-															   tile['pos'][1] * self.tile_size - self.tile_size,
-															   self.game.assets[tile['type']][tile['variant']].get_width(),
-															   self.game.assets[tile['type']][tile['variant']].get_height())])
+												pygame.Rect(tile['pos'][0] * self.tile_size,
+															tile['pos'][1] * self.tile_size - self.tile_size,
+															self.game.assets[tile['type']][tile['variant']].get_width(),
+															self.game.assets[tile['type']][tile['variant']].get_height())])
 							self.auto_tile(target_chunk)
 
-						elif tile['type'] == 'tree':
+						elif tile['type'] == 'tree' and target_chunk not in self.interact_tile:
 							object_to_draw.append([self.game.assets[tile['type']][tile['variant']],
 												   pygame.Rect(tile['pos'][0] * self.tile_size -
 															   self.game.assets[tile['type']][tile['variant']].get_width() // 7,
@@ -273,10 +287,14 @@ class Tile_map():
 																   tile['pos'][1] * self.tile_size - offset[1] -
 																   self.game.assets['light'].get_height() // 2 + 24)),
 																 special_flags=pygame.BLEND_RGB_ADD)
+							
+							
 						if tile['type'] == 'chest':
 							loc = (tile['pos'][0],tile['pos'][1],3)
 							if  loc not in self.chest_inventory:
-								self.chest_inventory[loc] = {'inventory': invent,'used':False}
+								self.chest_inventory[loc] = {'inventory': Chest_inventory(self.game),'used':False}
+						if tile['hp'] == 0:
+							tile['type'] = 0
 						
 						loc = (tile['pos'][0],tile['pos'][1],3)
 						if loc in self.map_data:
